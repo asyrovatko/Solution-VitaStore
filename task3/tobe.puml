@@ -1,0 +1,218 @@
+@startuml VitaStore_C4_TOBE
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+AddRelTag("business", $lineColor="orchid", $textColor = "orchid" )
+AddRelTag("sale", $lineColor="green", $textColor = "green" )
+AddRelTag("periph", $lineColor="olive", $textColor = "olive" )
+AddRelTag("payment", $lineColor="turquoise", $textColor = "turquoise" )
+AddRelTag("its", $lineColor="blue", $textColor = "blue" )
+AddRelTag("offline", $lineColor="red", $textColor = "red" )
+AddRelTag("sku", $lineColor="orange", $textColor = "orange" )
+AddRelTag("manual", $lineColor="brown", $textColor = "brown" )
+AddRelTag("tax", $lineColor="black", $textColor = "black" )
+AddRelTag("multy", $lineColor="purple", $textColor = "purple" )
+
+title VitaStore — C4 Container TO-BE
+Boundary(sale, "Sale") {
+Person(seller, "Продавец", "A1 [RETAINED] Роль |  Работает с кассой и оборудованием в магазине")
+Person_Ext(client, "Покупатель", "A2 [RETAINED] Роль | Покупает в магазине и онлайн")
+}
+Boundary(commdep, "Коммерческий департамент") {
+Person(merch, "Товаровед (Team Data Integration)", "A3 [RETAINED] Роль | Сопоставление номенклатуры магазинов при миграции")
+Person(comm, "Коммерческий департамент", "A5 [RETAINED] Роль | Ассортимент, цены, акции, поставщики")
+}
+Person(its, "ИТ-специалист (Team Store Ops)/Департамент ИТ", "A4 [RETAINED] Роль | Подключение магазина")
+Person(ma, "Департамент развития", "A6 [RETAINED] Роль | Покупает магазины")
+
+System_Boundary(main, "VitaStore") {
+
+    System_Boundary(store, "МАГАЗИН — Касса N (в магазине только планшет и фискальный регистратор)") {
+          System_Boundary(st_saas, "Класс: SaaS — приложения (контейнеры) на Android-планшете") {
+                Container(pos, "Cloud POS", "TO14 [NEW] | SaaS | Касса МойСклад (Android)", "Продажа, возврат, наличные, карта лояльности. При связи работает онлайн с бэк-офисом; без связи переходит в автономный режим")
+                Container(chat, "Мобильный чат", "TO15 [NEW] | SaaS | приложение Битрикс24", "Диалог с чат-ботом: ответ, штрихкод, фото позиции")
+                Container(agent, "Агент MDM", "TO16 [NEW] | SaaS | Kaspersky Endpoint Security для Android", "Политики, установка и обновление приложений")
+                ContainerDb(olddb, "Local DB", "AS2 [CHANGED] MS SQL Express", "Только данные для миграции")
+                ContainerDb(excel, "Excel файл", "AS7 [RETAINED] файл Excel", "Файл c базой магазина")
+                ContainerDb(ldb, "Автономное хранилище кассы", "TO17 [NEW] | встроенное хранилище | автономный режим Кассы МойСклад", "Используется только без связи: справочник на момент последней синхронизации и очередь неотправленных продаж")
+                Container(hal, "HAL", "TO21 [NEW] | SaaS | Касса МойСклад (Android)", "Абстрактный слой для взамодействия с оборудованием")
+                Container(pg, "Payment Gateway", "AS22 [NEW] | SaaS | Касса МойСклад (Android)", "Абстрактный слой платежей")
+          }
+          System_Boundary(st_hw, "Класс: оборудование") {
+                Container_Ext(term, "Банковский терминал", "TO19 [CHANGED] | оборудование | терминал эквайринга Сбербанка (INPAS, TCP/IP по Wi-Fi)", "Приём карт; сумма приходит из Кассы МойСклад")
+                Container_Ext(fr, "Фискальный регистратор", "TO18 [CHANGED] | оборудование |  с фискальным накопителем (Bluetooth)", "Фискализация и печать чека; ФН хранит фискальные документы, пока нет связи с ОФД")
+                Container_Ext(periph, "Денежный ящик и сканер", "AS5 [CHANGED] | оборудование | денежный ящик, Bluetooth-сканер", "Сканирование штрихкодов; ящик открывается сигналом ФР")
+                Container_Ext(lte, "Резервный канал связи", "TO20 [NEW] | оборудование | LTE-роутер", "Связь при отказе основного интернета")
+          }
+    }
+
+    System_Boundary(hq, "ЦЕНТРАЛЬНЫЙ ОФИС") {
+          System_Boundary(hq_saas, "Класс: SaaS") {
+                Container(posbo, "Облачный бэк-офис кассы", "TO1 [NEW] | SaaS | МойСклад (JSON API 1.2)", "Backend касс")
+                ContainerDb(posboDB, "Хранилище облачного бэк-офиса кассы", "TO2 [NEW] | SaaS | МойСклад DB", "Справочник и цены касс, журнал чеков; вебхуки о продажах. Источник данных BI")
+                Container(loy, "Программа лояльности", "TO3 [NEW] | SaaS | МойСклад - расширенная бонусная программа", "Карты/телефоны покупателей, баллы, правила начисления и списания")
+                Container(bot, "Чат-бот SKU Matching", "TO4 [NEW] | SaaS | Битрикс24 (чат-бот, REST API)", "Ставит продавцу вопрос по неизвестной позиции, собирает штрихкод и фото")
+                Container(tasks, "Задачи и CRM", "TO5 [NEW] | SaaS | Битрикс24 (Задачи, CRM)", "Эскалации товароведу, выезды ИТ, маркетинг")
+                Container(mdm, "Консоль управления устройствами (MDM)", "TO6 [NEW] | SaaS | Kaspersky Endpoint Security Cloud", "Регистрация планшетов, политики, установка приложений")
+                Container(bi, "BI-отчётность", "TO7 [NEW] | SaaS | Yandex DataLens", "Продажи, остатки, ТСО по магазинам")
+          }
+          System_Boundary(hq_paas, "Класс: PaaS") {
+                Container(gw, "API Gateway", "T08 [NEW] | PaaS | Yandex API Gateway", "Единая точка входа для вебхуков МойСклад, Битрикс24, загрузки дампов")
+                Container(ingest, "Приём дампов", "TO9 [NEW] | PaaS | Yandex Object Storage", "Приём и хранение дампов магазинов (CSV/XLSX) по pre-signed ссылке")
+                Container(sku, "SKU Matching (ИИ)", "TO10 [NEW] | PaaS | YandexGPT API", "Сопоставление товаров и эскалации")
+                Container(integ, "Интеграционные функции", "TO11 [NEW] | PaaS | Yandex Cloud Functions", "Коннекторы: МойСклад, Data Streams, проверка дампов")
+                Container(bus, "Шина событий", "TO12 [NEW] | PaaS | Yandex Data Streams (Kafka API 3.4)", "Бизнес-события")
+                ContainerDb(db, "Операционная БД интеграций", "TO13 [NEW] | PaaS | Yandex Managed Service for YDB (Serverless)", "Результаты сопоставления, журнал интеграций")
+          }
+          System_Boundary(hq_onprem, "Класс: On-premise (сохраняется)") {
+               Container(erp, "SAP ERP", "AS10 [CHANGED] on-premises", "Главная центральная система учета (Товары, цены, лояльность) (+взаимодействия с шиной)")
+               Container(promo, "Promo Engine", "AS11 [CHANGED] on-premises", "Промо (+взаимодействия с шиной)")
+               Container(sf, "Smart Fulfillment ", "AS12 [CHANGED] on-premises", "Товародвижение, онлайн-заказы (+взаимодействия с шиной)")
+               Container(pgo, "Payment Gateway Онлайн", "AS13 [CHANGED] on-premises", "Абстрактный слой платежей онлайн")
+          }
+    }
+}
+
+Boundary(pay, "Payment") {
+    System_Ext(bank, "Банк-эквайер", "AS14 | внешняя система", "Эквайринг")
+    System_Ext(bank_client, "СБП/Банк клиента", "TO23 | внешняя система", "СБП")
+}
+Boundary(tax, "tax") {
+    System_Ext(ofd, "ОФД", "ОФД", "AS15 | внешняя система", "Передача фискальных данных в ФНС")
+    System_Ext(fns, "ФНС", "ФНС России", "AS16 | внешняя система", "Регистрация ККТ, приём чеков")
+}
+
+Rel_D(ma, erp, "0.1 заводит магазины","IA0 [RETAINED] Web UI / REST API", $tags="business")
+Rel_D(comm, erp, "0.1.1 управление ассортиментом, ценами","IA1 [RETAINED] Web UI / REST API", $tags="business")
+Rel_D(erp, bus, "0.1.1.1 событие: произошло обновление ассортимента и цен или номенклатуры, нужна синхронизация в магазинах","IT1 [NEW] Kafka API", $tags="business")
+Rel_D(comm, promo, "0.1.2 управление акциями","IA3 [RETAINED] Web UI / REST API", $tags="business")
+Rel_L(promo, erp, "0.1.2.1  применяет правила промо-акций", "IA4 [RETAINED] REST API", $tags="business")
+Rel_D(promo, bus, "0.1.2.2 событие: произошло обновление промо-акций","IT2 [NEW] Kafka API", $tags="business")
+Rel_D(comm, sf, "0.1.3 управление поставщиками, остатками","IA5 [RETAINED] Web UI / REST API", $tags="business")
+Rel_R(sf, erp, "0.1.3.1 Получает информацию о товарах", "IA6 [RETAINED] REST API", $tags="business")
+Rel_D(sf, bus, "0.1.3.2 событие: произошло обновление остатков в магазинах, нужна синхронизация в магазинах","IT3 [NEW] Kafka API", $tags="business")
+
+Rel(ma, bi, "0.2. отчёты: оценка эффективности миграции", "IT4 [NEW] Web UI DataLens",  $tags="business" )
+Rel_D(comm, bi, "0.2.1 отчёты: эффективность акций, продаж", "IT5 [NEW] Web UI DataLens",  $tags="business")
+Rel_D(bi, posboDB, "0.2.2 продажи, чеки, остатки, бонусы", "IT6 [NEW] коннектор DataLens МойСклад", $tags="business")
+Rel_D(bi, db, "0.2.3 метрики онбординга и сопоставления", "IT7 [NEW] коннектор DataLens YDB", $tags="business")
+
+Rel_D(bus, integ, "0.3. подготовка изменений цен, товаров, номенклатуры, акций, остатков","IT8 [NEW] Kafka API", $tags="business")
+Rel_R(integ, posbo, "0.3.1 изменение цен, товаров, акций, остатков", "IT9 [NEW] REST API", $tags="business")
+Rel_U(integ, loy, "0.3.2 изменение правил лояльности", "IT10 [NEW] REST API", $tags="business")
+Rel_U(integ, bus, "0.3.3 событие: товары и остатки обновлены / 1.2.6. событие: данные из дампа загружены для сопоставления / 5.6.2. событие: чеки, продажи, возвраты", "I25 [NEW] Kafka API",  $tags="multy")
+
+Rel(ma, tasks, "1. Ставит задачу и принимает решение о завершении", "IT11 [NEW] UI", $tags="business")
+Rel_D(its, tasks, "1.1 Выполняет подключения магазина", "IT12 [NEW] UI", $tags="its")
+Rel(its, mdm, "1.1.1 регистрация планшета", "IT13 [NEW] MDM UI", $tags="its")
+Rel_D(mdm, agent, "1.1.2 политики, приложения", "IT14 [NEW] MDM push", $tags="its")
+Rel_R(agent, pos, "1.1.2.1. установка, переустановка и обновление приложений", "IT15 [NEW] managed Google Play", $tags="its")
+Rel_U(agent, chat, "1.1.2.2. установка, переустановка и обновление приложений", "IT16 [NEW] managed Google Play", $tags="its")
+
+Rel_D(its, olddb, "1.2 Выгружает дамп базы/администрирует", "IA12 [CHANGED] Вручную", $tags="its")
+Rel_D(its, excel, "1.2.1 Сохраняет дамп базы", "IA13 [RETAINED] Вручную", $tags="its")
+Rel_R(excel, olddb, "1.2.1.1 Наполняет", "IA14 [RETAINED] Excel", $tags="its")
+Rel(its, chat, "1.2.2 запрашивает ссылку на загрузку дампа", "IT17 [NEW] Web UI",  $tags="its")
+Rel_D(chat, bot, "1.2.2.1 отправляет запрос на ссылку / 2.2.3 ответ по товару", "IT18 [NEW] Bot API",  $tags="multy")
+Rel_R(bot, gw, "1.2.2.2 транслирует запрос на ссылку / 2.2.4  вебхук: ответ продавца", "IT19 [NEW] REST API",  $tags="multy")
+Rel_D(gw, integ, "1.2.2.3 / 5.6.1 маршрутизация", "IT20 [NEW] REST API",  $tags="multy")
+Rel_D(integ, ingest, "1.2.2.4. формирует ссылку для загрузки дампа ", "IT21 [NEW] REST API",  $tags="its")
+Rel(its, ingest, "1.2.3. загружает дамп по ссылке", "IT22 [NEW] REST API",  $tags="its")
+Rel_D(ingest, integ, "1.2.4. обработка данных из дампа", "IT23 [NEW] триггер Object Storage ",  $tags="its")
+Rel_U(integ, db, "1.2.5. сохранение записей на сопоставление из дампа /2.2/2.2.7/2.3.5 сохранение результатов сопоставления", "IT24 [NEW] YDB SDK",  $tags="its")
+
+Rel_U(its, fr, "1.3. установка ФН / 1.3.2. ввод регистрационных данных / 1.3.3. сопряжение с планшетом", "IT26 [NEW] Вручную",  $tags="its")
+Rel_U(its, fns, "1.3.1.  регистрация ККТ в личном кабинете ФНС", "IT27 [NEW] ФНС API",  $tags="its")
+Rel_U(fr, ofd, "1.3.2.1. регистрационные данные ФР / 5.3.2. фискальные данные (сразу при связи, без связи — из ФН после восстановления)", "IT27_1 [NEW] ОФД API", $tags="tax" )
+Rel_R(ofd, fns, "1.3.2.2. отчет о регистрации ФР / 3(а).4/5.3.3. чеки", "IA29 [NEW] ФНС API",  $tags="tax"  )
+
+Rel(its, periph, "1.4. подключение ящика к ФР и сканера к планшету", "IT28 [NEW] Вручную",  $tags="its")
+Rel(its, term, "1.5. подключение терминала к Wi-Fi и Кассе ", "IT29[NEW] Вручную",  $tags="its")
+Rel(its, lte, "1.6. настраивает", "IT30 [NEW] Вручную",  $tags="its")
+
+Rel(its, pos, "1.7 запуск синхронизации данных точки", "Web UI", "IT31 [NEW] Web UI",  $tags="its")
+Rel_D(pos, posbo, "1.7.1. получение актуальных справочников для оффлайн-режима / 3.1(b).3. поиск данных для консультации / 3.4/3.4(a).1. получение цены товара для продажи / 5.4/5.4(a).1. сохранение чеков / 5.4(b).2 отправка очереди сохранения чеков", "IT32 [NEW] МойСклад API",  $tags="sale")
+Rel_U(posbo, posboDB, " 1.7.2 получение актуальных справочников для оффлайн-режима / 3.1(b).4. поиск данных для консультации / 3.5. получение цены товара для продажи / 5.5. запись в журнал чеков чеков", "IT33 [NEW] МойСклад API",  $tags="sale")
+
+Rel_U(its, seller, "1.8. инструктаж по обучению", "IT34 [NEW] Вручную",  $tags="its")
+
+Rel_D(bus, sku, "2. позиции на сопоставление", "IT35 [NEW] триггер Data Streams",  $tags="its")
+Rel_U(sku, integ, "2.1/2.2.6/2.3.4 обработка результатов сопоставления", "IT36 [NEW] REST API", $tags="sku")
+
+Rel_U(sku, bot, "2.2.  вопрос продавцу по позиции", "IT37 [NEW] Bot API",  $tags="sku")
+Rel_U(bot, chat, "2.2.1  сообщение в чат с вопросом", "IT38 [NEW] Bot API",  $tags="sku")
+Rel_D(seller, chat, "2.2.2 ответ боту, штрихкод, фото", "UI", "IT39 [NEW] Web UI",  $tags="sku")
+Rel_D(gw, sku, "2.2.5/2.3.3  ответ для дополнения маппинга", "IT40 [NEW] REST API", $tags="sku")
+
+Rel_U(sku, tasks, "2.3 эскалация: задача товароведу", "IT41 [NEW] Битрикс API", $tags="manual")
+Rel_D(merch, tasks, "2.3.1 ручное сопоставление", "IT42 [NEW] Web UI", $tags="manual")
+Rel(merch, erp, "2.3.1.1 Запрашивает данные для сопоставления", "IA19 [CHANGED] Web UI", $tags="manual")
+Rel_D(tasks, gw, "2.3.2 вебхук: решение товароведа", "IT43 [NEW] REST API", $tags="manual")
+
+Rel_U(sku, bus, "2.4. событие: номенклатура сопоставлена", "IT44 [NEW] Kafka API", $tags="sku")
+Rel_U(bus, erp, "2.5. обновление номенклатуры", "IT45 [NEW] REST API", $tags="sku")
+
+Rel_D(client, sf, " 3(a). оформление онлайн-заказов", "IA25 [NEW] Web UI", $tags="sale")
+Rel_R(sf, pgo, "3(a).1 оплата онлайн-заказов", "IA26 [NEW] REST API", $tags="payment")
+Rel_D(pgo, bank, "3(a).2 оплата онлайн-заказов", "IA27 [NEW] Процессинг", $tags="payment")
+Rel_D(client, bank, "3(a).2.1 подтверждение", "IA27_1 [NEW] Процессинг", $tags="payment")
+Rel_D(sf, ofd, "3(а).3 фискальные данные ", "IA28 [RETAINED] ОФД API", $tags="tax" )
+Rel_U(sf, client, "3(a).5 отправка чека онлайн-заказов", "IA30 [NEW] Email", $tags="sale")
+
+Rel_D(client, seller, "3. товар / 4. карта лояльности / 5. выбор способа оплаты / 5.2(a).2. наличные / 5.5.2 получает чек", "IA20 [RETAINED] Вручную", $tags="sale")
+Rel_D(seller, pos, "Работает с кассой: 3.1. запускает продажу / 3.1(a) запускает возврат / 3.1(b) запускает консультацию /4.1 скан карты лояльности или поиск по номеру /5.1. запуск оплаты", "IT46 [NEW] Web UI", $tags="sale")
+Rel_D(pos, hal, "Работает с оборудованием: 3.1.1 / 3.1(a).1 / 3.1(b).1 / 4.1.1 запуск сканера / 5.2(a) инициализация оплаты наличными / 5.3. фискализация и печать чека ", "IT46_1 [NEW] HAL API", $tags="periph")
+Rel_U(hal, periph, "Работает с оборудованием: 3.1.2 / 3.1(a).2 / 3.1(b).2 / 4.1.2 активация сканера ", "IT46_2 [NEW] driver", $tags="periph")
+
+Rel_U(seller, periph, "3.2. сканирует товар / 5.2(a).3 вносит наличные,выдаёт сдачу", "IA22 [RETAINED] Вручную", $tags="periph")
+Rel_D(periph, hal, "3.3. штрихкоды со сканера ", "IT47 [NEW] driver", $tags="periph")
+
+Rel_D(lte, pos, "3.4(a)/4.2(a)/5.4(a) резервная связь (до перехода в автономный режим)", "IT48 [NEW] Мой склад API", $tags="offline")
+Rel_D(pos, ldb, "3.4(b)/4.2(b)/5.4(b) только без связи: чтение справочников / очередь изменений по лояльности / очередь чеков / 4.2(b).1/5.4(b).1. после восстановления связи получение очереди изменений данных лояльности и сохранения чеков", "IT49 [NEW] Мой склад API", $tags="offline")
+
+Rel_D(pos, loy, "4.2/4.2(a).1 онлайн: баланс, списание и начисление баллов / 4.2(b).2 отправка очереди изменений данных лояльности", "IT50 [NEW] Мой склад API", $tags="sale")
+
+Rel_D(pos, pg, "5.2.  сумма к оплате -> подтверждение оплаты / 5.2(b). оплата СБП по QR", "IT51 [NEW] Payment Gateway API", $tags="payment")
+Rel_U(pg, term, "5.2.1.  сумма к оплате", "IT51_1 [NEW] INPAS по TCP/IP, Wi-Fi", $tags="payment")
+Rel_D(client, term, "5.2.2. оплата картой", "IT52 [NEW] Вручную",$tags="payment")
+Rel_D(term, pg, "5.2.3. запрос оплаты", "IT53 [NEW] Payment Gateway API",$tags="payment")
+Rel_D(pg, bank, "5.2.4 авторизация карты -> одобрение", "IT54 [NEW] Процессинг", $tags="payment")
+
+Rel_U(hal, periph, "5.2(a).1. открытие денежного ящика",  "IT55 [NEW] driver", $tags="periph")
+Rel_D(periph, hal,  "5.2(a).4. Сигнал о закрытии ящика", "IT56 [NEW] driver", $tags="periph")
+Rel_U(hal, fr, "5.3.1 фискализация и печать чека", "IT57 [NEW] Bluetooth, driver", $tags="periph")
+
+Rel_D(client, pos, "5.2(b).1 сканирует QR", "IT58 [NEW] Вручную", $tags="payment")
+Rel_U(pg, bank_client, "5.2(b).2. счёт -> подтверждение", "IT59 [NEW] Процессинг ", $tags="payment")
+Rel_R(client, bank_client, "5.2(b).2.1 совершение операции", "IT60 [NEW] Приложение банка", $tags="payment")
+
+Rel_D(seller, fr, "5.5.1 забирает напечатанный чек", "IT61 [NEW] Вручную", $tags="sale")
+
+Rel_U(posbo, gw, "5.6. чеки, продажи, возвраты, покупатели", "IT62 [NEW] REST API", $tags="sale")
+Rel_U(bus, sf, "5.6.3. сохранение чека, продажи, возврата, корректировка остатков", "IT63 [NEW] Kafka API", $tags="sale")
+
+Lay_D(ofd,its)
+Lay_D(ma,erp)
+Lay_D(ma,its)
+Lay_U(its,comm)
+Lay_U(its,merch)
+Lay_D(comm,erp)
+Lay_D(comm,promo)
+Lay_D(comm,sf)
+Lay_D(merch, tasks)
+Lay_D(its,chat)
+Lay_D(its,excel)
+Lay_D(bot, posbo)
+Lay_D(posbo, loy)
+Lay_D(gw,sku)
+Lay_U(bank_client,bank)
+Lay_U(term,seller)
+Lay_D(term,bank_client)
+Lay_D(periph, pos)
+Lay_D(seller, pg)
+Lay_D(pgo, gw)
+Lay_D(pos, pg)
+Lay_U(term,ofd)
+
+@enduml
