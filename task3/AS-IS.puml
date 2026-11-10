@@ -1,0 +1,131 @@
+@startuml VitaStore_C4_ASIS
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+AddRelTag("invalid", $lineColor="red", $textColor = "red" )
+AddRelTag("business", $lineColor="orchid", $textColor = "orchid" )
+AddRelTag("sale", $lineColor="green", $textColor = "green" )
+AddRelTag("periph", $lineColor="olive", $textColor = "olive" )
+AddRelTag("payment", $lineColor="turquoise", $textColor = "turquoise" )
+AddRelTag("its", $lineColor="blue", $textColor = "blue" )
+AddRelTag("manual", $lineColor="brown", $textColor = "brown" )
+AddRelTag("tax", $lineColor="black", $textColor = "black" )
+'AddRelTag("", $lineColor="purple", $textColor = "purple" )
+
+title C4 Container Diagram — VitaStore (AS-IS)
+
+' ====================== Акторы ======================
+
+Boundary(sale, "Sale") {
+Person(seller, "Продавец", "A1 | Роль |  Работает с кассой и оборудованием в магазине")
+Person_Ext(client, "Покупатель", "A2 | Роль | Покупает в магазине и онлайн")
+}
+Boundary(commdep, "Коммерческий департамент") {
+Person(merch, "Товаровед (Team Data Integration)", "A3 | Роль | Сопоставление номенклатуры магазинов при миграции")
+Person(comm, "Коммерческий департамент", "A5 | Роль | Ассортимент, цены, акции, поставщики")
+}
+Person(its, "ИТ-специалист (Team Store Ops)/Департамент ИТ", "A4 | Роль | Подключение магазина")
+Person(ma, "Департамент развития", "A6 | Роль | Покупает магазины")
+
+System_Boundary(monolith, "VitaStore") {
+
+     System_Boundary(store_edge, "Store Edge (Магазин)" ){
+
+        Container(pos_app, "POS App (Толстый клиент)", "AS1 | Windows, C#", "монолитное десктопное приложение. Содержит бизнес-логику и драйверы устройств")
+        ContainerDb(db, "Local DB", "AS2 | MS SQL Express", "БД на сервере в подсобке. Хранит чеки и справочники магазина")
+         note right of pos_app
+          Жестко привязан к конкретным моделям оборудования через встроенные драйверы.
+        end note
+
+        Container_Ext(fiscal_printer, "Fiscal printer", "AS3 | оборудование", "Аппарат ККТ (СOM-port)")
+        Container_Ext(ingenico_payment_terminal, "Ingenico Payment Terminal", "AS4 | оборудование", "Банковский терминал (USB)")
+        Container_Ext(periph, "Денежный ящик и сканер", "AS5 | оборудование", "Сканирование штрихкодов; ящик открывается сигналом ФР")
+
+        Container(notebook, "Тетрадь", "AS6 | бумажный учет", "Для ведения лояльности")
+        ContainerDb(excel, "Excel файл", "AS7 | файл Excel", "Файл c базой магазина")
+        Container(mail, "электронная почта", "AS8 | Email", "Почтовый ящик: data-integration@vitastore.ru")
+
+    }
+
+    System_Boundary(central_office, "Central Office (HQ Cloud)" ){
+
+       ContainerDb(xml, "Пакет обновлений", "AS9 | файл XML, FTP", "Товары, цены")
+
+       Container(erp, "SAP ERP", "AS10 | on-premises", "Главная центральная система учета (Товары, цены, лояльность)")
+       Container(promo, "Promo Engine", "AS11 | on-premises", "Промо")
+       Container(sf, "Smart Fulfillment ", "AS12 | on-premises", "Товародвижение, онлайн-заказы")
+
+    }
+
+}
+Boundary(pay, "Payment") {
+    System_Ext(pg, "Payment Gateway", "AS13 | внешняя система", "СБП и онлайн-оплата заказов")
+    System_Ext(bank, "Банк-эквайер", "AS14 | внешняя система", "Эквайринг")
+}
+Boundary(tax, "tax") {
+    System_Ext(ofd, "ОФД", "ОФД", "AS15 | внешняя система", "Передача фискальных данных в ФНС")
+    System_Ext(fns, "ФНС", "ФНС России", "AS16 | внешняя система", "Регистрация ККТ, приём чеков")
+}
+
+' ====================== Связи ======================
+
+Rel(ma, erp, "0.1 заводит магазины","IA0 | Web UI / REST API", $tags="business")
+Rel_D(comm, erp, "0.1.1 управление ассортиментом, ценами","IA1 | Web UI / REST API", $tags="business")
+Rel_R(erp, xml, "0.1.1.1 Выгрузка товаров и цен", "IA2 | REST API", $tags="business")
+Rel_D(comm, promo, "0.1.2 управление акциями","IA3 | Web UI / REST API", $tags="business")
+Rel_D(promo, erp, "0.1.2.1  применяет правила промо-акций", "IA4 | REST API", $tags="business")
+Rel_D(comm, sf, "0.1.3 управление поставщиками, остатками","IA5 | Web UI / REST API", $tags="business")
+Rel_U(sf, erp, "0.1.3.1 Получает информацию о товарах", "IA6 | REST API", $tags="business")
+Rel_U(xml, pos_app, "0.2 Загрузка ночью", "IA7 | FTP", $tags="business")
+
+Rel_L(ma, its, "1. Cтавит задачу", "IA8 | Устно/почта", $tags="its")
+Rel_D(its, pos_app, "1.1  Разворачивает/администрирует", "IA9 | Вручную", $tags="its")
+Rel_D(its, ingenico_payment_terminal, "1.1.1 Разрабатывает драйвера", "IA10 | Вручную", $tags="its")
+Rel_D(its, fiscal_printer, "1.1.2 Разрабатывает драйвера", "IA11 | Вручную", $tags="its")
+Rel_D(its, db, "1.2 Выгружает дамп базы/администрирует", "IA12 | Вручную", $tags="its")
+Rel_D(its, excel, "1.2.1 Сохраняет дамп базы", "IA13 | Вручную", $tags="its")
+Rel_D(excel, db, "1.2.1.1 Содержит данные магазина", "IA14 | Email", $tags="its")
+Rel_D(its, mail, "1.2.2 Отправляет файл", "IA15 | Вручную", $tags="its")
+Rel_D(excel, mail, "1.2.2.1 Вложен в письмо", "IA16 | Email", $tags="its")
+
+Rel_D(merch, mail, "2. Получает файл базы магазина", "IA17 | Вручную", $tags="manual")
+Rel_D(merch, excel, "2.1  Сопоставляет номенклатуру", "IA18 | Вручную", $tags="manual")
+Rel_D(merch, erp, "2.2 Запрашивает данные для сопоставления/ 2.3 загружает результат сопоставления", "IA19 | Вручную", $tags="manual")
+
+Rel_D(client, seller, "3. товар / 4. карта лояльности / 5. выбор способа оплаты / 5.2(a).2. наличные / 5.5.2 получает чек", "IA20 | Вручную", $tags="sale")
+Rel_U(seller, pos_app, "Работает с кассой: 3.1. запускает продажу / 3.1(a) запускает возврат /4.1 скан карты лояльности или поиск по номеру /5.1. запуск оплату", "IA21 | UI", $tags="sale")
+Rel_U(seller, periph, "3.2. сканирует товар / 5.2(a).3 вносит наличные,выдаёт сдачу", "IA22 | Вручную", $tags="periph")
+Rel_D(periph, pos_app, "3.3. штрихкоды со сканера (Bluetooth)", "IA23 | Вручную", $tags="periph")
+Rel_D(pos_app, db, "3.4 получение цены товара для продажи / 5.4 сохранение чеков", "IA24 | Synchronous", $tags="sale")
+
+Rel_D(client, sf, "3(a). оформление онлайн-заказов", "IA25 | Web UI / REST API",  $tags="sale")
+Rel_U(sf, pg, "3(a).1 оплата онлайн-заказов", ,"IA26 | REST API", $tags="payment")
+Rel_U(pg, bank, "3(a).2 авторизация карты -> одобрение", "IA27 | Процессинг", $tags="payment")
+Rel_D(client, bank, "3(a).2.1 подтверждение", "IA27_1 | Процессинг", $tags="payment")
+Rel_D(sf, ofd, "3(a).3 фискальные данные", "IA28 | ОФД API", $tags="tax")
+Rel_R(ofd, fns, "3(a).4 чеки", "IA29 | ФНС API", $tags="tax")
+Rel_U(sf, client, "3(a).5 отправка чека онлайн-заказов", "IA30 | email", $tags="sale")
+
+Rel_D(pos_app, erp, "4.2 управление картой лояльность клиента: баланс, списание и начисление баллов", "IA31 | REST API", $tags="sale")
+Rel_R(seller, notebook, "4.3 Ведет лояльность", "IA32 | Вручную", $tags="sale")
+
+Rel(pos_app, erp, "0.2(a) / 4.3(a) Real-time stock & loyalty update", "IA33 | Rest Api (не существует)", $tags="invalid")
+
+Rel_U(pos_app, ingenico_payment_terminal, "5.2. Инициация оплаты", "IA34 | USB driver", $tags="payment")
+Rel_U(client, ingenico_payment_terminal, "5.2.1. Прикладывает карту", "IA35 | Вручную", $tags="payment")
+Rel_U(ingenico_payment_terminal, bank, "5.2.2. авторизация карты -> одобрение", "IA36 | Процессинг", $tags="payment")
+Rel_U(pos_app, periph, "5.2(a).1 открытие денежного ящика", "IA37 | driver", $tags="periph")
+Rel_D(periph, pos_app,  "5.2(a).4. Сигнал о закрытии ящика", "IA38 | driver", $tags="periph")
+Rel_U(pos_app, fiscal_printer, "5.3. Прямое управление печатью", "IA39 | COM-port driver", $tags="sale")
+Rel_D(seller, fiscal_printer, "5.5 Забирает напечатанный чек", "IA40 | Вручную", $tags="sale")
+
+Lay_D(pos_app,periph)
+Lay_D(fiscal_printer,client)
+Lay_D(pg,client)
+Lay_U(client,ofd)
+Lay_U(pos_app,notebook)
+Lay_U(pos_app,excel)
+Lay_U(ofd,sf)
+
+@enduml
